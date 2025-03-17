@@ -1,3 +1,8 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import io from 'socket.io-client';
+
 interface Match {
   away_score?: string;
   away_team: string;
@@ -11,14 +16,28 @@ interface Match {
   away_logo?: string;
 }
 
-async function getMatches() {
-  const res = await fetch('http://127.0.0.1:5000/matches');
-  const data = await res.json();
-  return data.data as Match[];
-}
+export default function Home() {
+  const [matches, setMatches] = useState<Match[]>([]);
 
-export default async function Home() {
-  const matches = await getMatches();
+  useEffect(() => {
+    const socket = io('http://127.0.0.1:5000');
+
+    socket.on('update', (data) => {
+      setMatches(data.data);
+    });
+
+    const fetchInitialData = async () => {
+      const res = await fetch('http://127.0.0.1:5000/matches');
+      const initialData = await res.json();
+      setMatches(initialData.data);
+    };
+
+    fetchInitialData();
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   return (
     <div className="p-4 container mx-auto overflow-hidden">

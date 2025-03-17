@@ -1,13 +1,16 @@
 from flask import Flask, jsonify
+from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from flask_cors import CORS
+import threading
 import time
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 team_ids = {
     "Arsenal": "t3",
@@ -130,5 +133,20 @@ def get_matches():
             'error': str(e)
         }), 500
 
+def background_task():
+    while True:
+        matches = fetch_data()
+        socketio.emit('update', {'data': matches})
+        time.sleep(60)
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    if not hasattr(background_task, "started"):
+        background_task.started = True
+        thread = threading.Thread(target=background_task)
+        thread.daemon = True
+        thread.start()
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000)
